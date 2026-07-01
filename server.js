@@ -142,6 +142,65 @@ app.post('/api/listings', upload.array('photos', 8), (req, res) => {
   }
 });
 
+// Edit an existing listing: update its fields, optionally remove some existing
+// photos, and optionally add new ones.
+app.put('/api/listings/:id', upload.array('photos', 8), (req, res) => {
+  try {
+    const db = readDB();
+    const listing = db.listings.find((l) => l.id === req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Not found' });
+
+    const { address, city, state, price, listDate, highlights, agentName, removePhotos } = req.body;
+
+    if (!address || !listDate) {
+      return res.status(400).json({ error: 'Address and list date are required.' });
+    }
+
+    // Remove any photos the agent unchecked in the edit form
+    const toRemove = new Set(
+      String(removePhotos || '')
+        .split(',')
+        .map((f) => f.trim())
+        .filter(Boolean)
+    );
+    const keptPhotos = (listing.photos || []).filter((filename) => {
+      if (toRemove.has(filename)) {
+        fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
+        return false;
+      }
+      return true;
+    });
+
+    // Append newly uploaded photos, capped at 8 total
+    const newPhotos = (req.files || []).map((f) => f.filename);
+    const combinedPhotos = [...keptPhotos, ...newPhotos].slice(0, 8);
+    // Anything beyond the 8-photo cap still got saved to disk by multer, so clean those up
+    const dropped = [...keptPhotos, ...newPhotos].slice(8);
+    for (const filename of dropped) {
+      fs.unlink(path.join(UPLOADS_DIR, filename), () => {});
+    }
+
+    listing.address = String(address).trim();
+    listing.city = (city || '').trim();
+    listing.state = (state || '').trim();
+    listing.price = (price || '').trim();
+    listing.listDate = String(listDate).trim();
+    listing.highlights = String(highlights || '')
+      .split('\n')
+      .map((h) => h.trim())
+      .filter(Boolean);
+    listing.agentName = (agentName || '').trim();
+    listing.photos = combinedPhotos;
+    listing.updatedAt = new Date().toISOString();
+
+    writeDB(db);
+    res.json(listing);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong updating the listing.' });
+  }
+});
+
 // Manually remove a listing early (e.g. it went pending/sold before the list date)
 app.delete('/api/listings/:id', (req, res) => {
   const db = readDB();
