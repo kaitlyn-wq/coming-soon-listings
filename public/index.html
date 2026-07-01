@@ -1,88 +1,222 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Coming Soon Listings | Pecan Creek Realty</title>
-<link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <header class="site-header">
-    <div class="header-inner">
-      <h1>Pecan Creek Realty</h1>
-      <p class="subtitle">Coming Soon Listings</p>
-    </div>
-    <button id="openFormBtn" class="btn btn-primary">+ Add Listing</button>
-  </header>
+const grid = document.getElementById('listingsGrid');
+const emptyState = document.getElementById('emptyState');
+const modal = document.getElementById('formModal');
+const form = document.getElementById('listingForm');
+const formError = document.getElementById('formError');
+const modalTitle = document.getElementById('modalTitle');
+const submitBtn = document.getElementById('submitBtn');
+const photosLabel = document.getElementById('photosLabel');
+const existingPhotosEl = document.getElementById('existingPhotos');
 
-  <main class="container">
-    <div id="emptyState" class="empty-state" hidden>
-      <p>No coming soon listings right now. Click "+ Add Listing" to post one.</p>
-    </div>
-    <div id="listingsGrid" class="listings-grid"></div>
-  </main>
+let listingsCache = [];
+let editingId = null; // null = adding a new listing, otherwise the id being edited
+let removedPhotos = new Set(); // filenames marked for removal while editing
 
-  <!-- Add Listing Modal -->
-  <div id="formModal" class="modal-overlay" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Add a Coming Soon Listing</h2>
-        <button id="closeFormBtn" class="btn-close" aria-label="Close">&times;</button>
+document.getElementById('openFormBtn').addEventListener('click', () => {
+  openAddModal();
+});
+document.getElementById('closeFormBtn').addEventListener('click', closeModal);
+document.getElementById('cancelFormBtn').addEventListener('click', closeModal);
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) closeModal();
+});
+
+function openAddModal() {
+  editingId = null;
+  removedPhotos = new Set();
+  form.reset();
+  formError.hidden = true;
+  modalTitle.textContent = 'Add a Coming Soon Listing';
+  submitBtn.textContent = 'Post Listing';
+  photosLabel.textContent = 'Photos (up to 8)';
+  existingPhotosEl.hidden = true;
+  existingPhotosEl.innerHTML = '';
+  modal.hidden = false;
+}
+
+function openEditModal(listing) {
+  editingId = listing.id;
+  removedPhotos = new Set();
+  formError.hidden = true;
+
+  form.address.value = listing.address || '';
+  form.city.value = listing.city || '';
+  form.state.value = listing.state || '';
+  form.price.value = listing.price || '';
+  form.listDate.value = listing.listDate || '';
+  form.highlights.value = (listing.highlights || []).join('\n');
+  form.agentName.value = listing.agentName || '';
+  form.photos.value = '';
+
+  modalTitle.textContent = 'Edit Listing';
+  submitBtn.textContent = 'Save Changes';
+  photosLabel.textContent = 'Add More Photos (up to 8 total)';
+
+  renderExistingPhotos(listing.photos || []);
+  modal.hidden = false;
+}
+
+function renderExistingPhotos(photos) {
+  if (!photos.length) {
+    existingPhotosEl.hidden = true;
+    existingPhotosEl.innerHTML = '';
+    return;
+  }
+  existingPhotosEl.hidden = false;
+  existingPhotosEl.innerHTML =
+    '<p class="existing-photos-label">Current photos (click to remove)</p>' +
+    '<div class="existing-photos-grid">' +
+    photos
+      .map(
+        (filename) => `
+      <div class="existing-photo-thumb" data-filename="${escapeHtml(filename)}">
+        <img src="/uploads/${encodeURIComponent(filename)}" alt="Existing property photo" />
+        <span class="remove-badge">Remove</span>
+      </div>`
+      )
+      .join('') +
+    '</div>';
+
+  existingPhotosEl.querySelectorAll('.existing-photo-thumb').forEach((thumb) => {
+    thumb.addEventListener('click', () => {
+      const filename = thumb.dataset.filename;
+      if (removedPhotos.has(filename)) {
+        removedPhotos.delete(filename);
+        thumb.classList.remove('marked-removed');
+      } else {
+        removedPhotos.add(filename);
+        thumb.classList.add('marked-removed');
+      }
+    });
+  });
+}
+
+function closeModal() {
+  modal.hidden = true;
+  form.reset();
+  formError.hidden = true;
+  existingPhotosEl.hidden = true;
+  existingPhotosEl.innerHTML = '';
+  editingId = null;
+  removedPhotos = new Set();
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderListings(listings) {
+  listingsCache = listings;
+  grid.innerHTML = '';
+  emptyState.hidden = listings.length !== 0;
+
+  for (const listing of listings) {
+    const card = document.createElement('div');
+    card.className = 'listing-card';
+
+    let photosHtml = '<div class="no-photo">No photos yet</div>';
+    if (listing.photos && listing.photos.length) {
+      const shown = listing.photos.slice(0, 3);
+      const single = shown.length === 1;
+      photosHtml = `<div class="listing-photos ${single ? 'single' : ''}">` +
+        shown.map((f, i) => `<img class="${i === 0 && !single ? 'main-photo' : ''}" src="/uploads/${encodeURIComponent(f)}" alt="Property photo" />`).join('') +
+        `</div>`;
+    }
+
+    const highlightsHtml = (listing.highlights || []).length
+      ? `<ul class="listing-highlights">${listing.highlights.map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`
+      : '';
+
+    const locationParts = [listing.city, listing.state].filter(Boolean).join(', ');
+
+    card.innerHTML = `
+      ${photosHtml}
+      <div class="listing-body">
+        <p class="listing-address">${escapeHtml(listing.address)}</p>
+        ${locationParts ? `<p class="listing-location">${escapeHtml(locationParts)}</p>` : ''}
+        ${listing.price ? `<p class="listing-price">${escapeHtml(listing.price)}</p>` : ''}
+        <p class="listing-date">Coming soon &mdash; lists ${formatDate(listing.listDate)}</p>
+        ${highlightsHtml}
+        ${listing.agentName ? `<p class="listing-agent">Posted by ${escapeHtml(listing.agentName)}</p>` : ''}
+        <div class="card-actions">
+          <button type="button" class="btn-link" data-action="edit" data-id="${listing.id}">Edit</button>
+          <button type="button" class="btn-link btn-link-danger" data-action="delete" data-id="${listing.id}">Delete</button>
+        </div>
       </div>
-      <form id="listingForm" class="listing-form">
-        <label>
-          Street Address *
-          <input type="text" name="address" required placeholder="123 Main St" />
-        </label>
+    `;
+    grid.appendChild(card);
+  }
+}
 
-        <div class="form-row">
-          <label>
-            City
-            <input type="text" name="city" placeholder="Bryan" />
-          </label>
-          <label>
-            State
-            <input type="text" name="state" placeholder="TX" />
-          </label>
-        </div>
+grid.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const listing = listingsCache.find((l) => l.id === id);
+  if (!listing) return;
 
-        <div class="form-row">
-          <label>
-            Estimated Price
-            <input type="text" name="price" placeholder="$350,000" />
-          </label>
-          <label>
-            List Date *
-            <input type="date" name="listDate" required />
-          </label>
-        </div>
-        <p class="field-hint">On this date the listing will automatically be removed from this site.</p>
+  if (btn.dataset.action === 'edit') {
+    openEditModal(listing);
+  } else if (btn.dataset.action === 'delete') {
+    const ok = confirm(`Remove the listing at ${listing.address}? This can't be undone.`);
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/listings/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete listing.');
+      await loadListings();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+});
 
-        <label>
-          Property Highlights
-          <textarea name="highlights" rows="4" placeholder="One per line, e.g.&#10;4 bed / 3 bath&#10;New roof (2024)&#10;Pool + outdoor kitchen"></textarea>
-        </label>
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
-        <label>
-          Your Name
-          <input type="text" name="agentName" placeholder="Agent name" />
-        </label>
+async function loadListings() {
+  try {
+    const res = await fetch('/api/listings');
+    const listings = await res.json();
+    renderListings(listings);
+  } catch (err) {
+    console.error('Failed to load listings', err);
+  }
+}
 
-        <label>
-          Photos (up to 8)
-          <input type="file" name="photos" accept="image/*" multiple />
-        </label>
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  formError.hidden = true;
 
-        <div id="formError" class="form-error" hidden></div>
+  const formData = new FormData(form);
+  if (editingId) {
+    formData.append('removePhotos', Array.from(removedPhotos).join(','));
+  }
 
-        <div class="form-actions">
-          <button type="button" id="cancelFormBtn" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Post Listing</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  const url = editingId ? `/api/listings/${editingId}` : '/api/listings';
+  const method = editingId ? 'PUT' : 'POST';
 
-  <script src="app.js"></script>
-</body>
-</html>
+  try {
+    const res = await fetch(url, { method, body: formData });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to save listing.');
+    }
+
+    closeModal();
+    await loadListings();
+  } catch (err) {
+    formError.textContent = err.message;
+    formError.hidden = false;
+  }
+});
+
+loadListings();
+// Refresh periodically so everyone's view stays current without a manual reload
+setInterval(loadListings, 60 * 1000);
