@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coming Soon Listings | Pecan Creek Realty</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <h1>Pecan Creek Realty</h1>
+      <p class="subtitle">Coming Soon Listings</p>
+    </div>
+    <button id="openFormBtn" class="btn btn-primary">+ Add Listing</button>
+  </header>
+
+  <main class="container">
+    <div id="emptyState" class="empty-state" hidden>
+      <p>No coming soon listings right now. Click "+ Add Listing" to post one.</p>
+    </div>
+    <div id="listingsGrid" class="listings-grid"></div>
+  </main>
+
+  <!-- Add Listing Modal -->
+  <div id="formModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Add a Coming Soon Listing</h2>
+        <button id="closeFormBtn" class="btn-close" aria-label="Close">&times;</button>
+      </div>
+      <form id="listingForm" class="listing-form">
+        <label>
+          Street Address *
+          <input type="text" name="address" required placeholder="123 Main St" />
+        </label>
+
+        <div class="form-row">
+          <label>
+            City
+            <input type="text" name="city" placeholder="Bryan" />
+          </label>
+          <label>
+            State
+            <input type="text" name="state" placeholder="TX" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Estimated Price
+            <input type="text" name="price" placeholder="$350,000" />
+          </label>
+          <label>
+            List Date *
+            <input type="date" name="listDate" required />
+          </label>
+        </div>
+        <p class="field-hint">On this date the listing will automatically be removed from this site.</p>
+
+        <label>
+          Property Highlights
+          <textarea name="highlights" rows="4" placeholder="One per line, e.g.&#10;4 bed / 3 bath&#10;New roof (2024)&#10;Pool + outdoor kitchen"></textarea>
+        </label>
+
+        <label>
+          Your Name
+          <input type="text" name="agentName" placeholder="Agent name" />
+        </label>
+
+        <label>
+          Photos (up to 8)
+          <input type="file" name="photos" accept="image/*" multiple />
+        </label>
+
+        <div id="formError" class="form-error" hidden></div>
+
+        <div class="form-actions">
+          <button type="button" id="cancelFormBtn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Post Listing</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
