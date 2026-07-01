@@ -182,6 +182,10 @@ body {
   overflow-y: auto;
 }
 
+.modal-overlay[hidden] {
+  display: none;
+}
+
 .modal {
   background: white;
   border-radius: 12px;
