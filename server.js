@@ -9,8 +9,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+// Everything that needs to survive a restart/redeploy lives under one folder
+// (STORAGE_DIR), so a single Render persistent disk mounted at that path covers
+// both the listings data and the uploaded photos. Locally this just becomes a
+// "storage" folder next to server.js.
+const STORAGE_DIR = process.env.STORAGE_DIR || path.join(__dirname, 'storage');
+const DATA_DIR = path.join(STORAGE_DIR, 'data');
+const UPLOADS_DIR = path.join(STORAGE_DIR, 'uploads');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 // Make sure our storage folders/files exist
